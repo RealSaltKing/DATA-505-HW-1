@@ -1,0 +1,125 @@
+***DATA 505 HW #1***
+**Kayle Megginson January 21st 2025**
+
+**Step Up Code:**
+```{r, message = F, warning = F}
+library(tidyverse)
+wine <- readRDS(gzcon(url("https://github.com/cd-public/DSLM-505/raw/master/dat/wine.rds"))) %>%
+  filter(province=="Oregon" | province=="California" | province=="New York") %>% 
+  mutate(cherry=as.integer(str_detect(description,"[Cc]herry"))) %>% 
+  mutate(lprice=log(price)) %>% 
+  select(lprice, points, cherry, province)
+```
+
+**Explanataion:**
+
+Line 1: Loads the Tidyverse package  
+Line 2: Reads the RDS file from the specified URL  
+Line 3: Retains rows where the province is Oregon, California, or New York.  
+Line 4: Creates a binary variable denoted as `cherry` that is 1 if "cherry" or "Cherry" appears in the description, 0 otherwise.  
+Line 5: Creates a new column denoted as `lprice`, which is the logarithm of the price.  
+Line 6: Keeps only the specified columns.  
+
+# Multiple Regression
+
+## Linear Models
+
+First run a linear regression model with log of price as the dependent variable and 'points' and 'cherry' as features (variables).
+
+```{r}
+m1 <- lm(lprice ~ points + cherry, data = wine)
+summary(m1)
+predicted <- predict(m1, wine)
+rmse <- sqrt(mean((wine$lprice - predicted)^2))
+rmse
+```
+
+**Explanataion:**
+
+Line 1: Creates a linear regression model where `lprice` is explained by `points` and `cherry`.  
+Line 2: Displays the regression coefficients and model statistics.  
+Line 3: Predicts `lprice` using the model.  
+Line 4: Calculates the Root Mean Squared Error (RMSE) to evaluate model performance.  
+
+
+**Results:**
+- The RMSE for `m1` is 0.4688, indicating the average error in predicting the log price of wine.  
+- The coefficients suggest for every additional point in the wine rating, the log price increases by 0.1051.  
+  - Wines described as having "cherry" flavors are associated with a 0.1188 increase in log price.
+
+
+
+## Interaction Models
+
+Add an interaction between 'points' and 'cherry'. 
+
+```{r}
+m2 <- lm(lprice ~ points * cherry, data = wine)
+summary(m2)
+predicted_interaction <- predict(m2, wine)
+rmse_interaction <- sqrt(mean((wine$lprice - predicted_interaction)^2))
+rmse_interaction
+```
+
+
+Line 1: Includes both the individual effects and the interaction between `points` and `cherry` in the model.  
+Line 2: Displays the updated regression results, including the interaction term.  
+Line 3: Predicts `lprice` using the new model.  
+Line 4: Computes the RMSE for the interaction model.  
+
+
+**Results:**
+- The RMSE for `m2` is 0.4685, slightly lower than `m1`, indicating a marginally better fit.  
+- The interaction term (`points:cherry`) has a positive coefficient (0.0127), suggesting that the effect of `points` on log price is stronger for wines described as having "cherry" flavors.
+
+
+
+### The Interaction Variable
+
+The coefficient on the interaction term indicates how the relationship between `points` and `lprice` changes depending on whether the wine mentions "cherry." For instance, a positive coefficient suggests that wines with "cherry" descriptions experience a steeper increase in price as points increase.
+
+
+## Applications
+
+Determine which province (Oregon, California, or New York), does the 'cherry' feature in the data affect price most?
+
+```{r}
+m3 <- lm(lprice ~ points * cherry * province, data = wine)
+summary(m3) 
+```
+
+Line 1: Includes interactions between all three variables.  
+Line 2: Creates a summary table to help see how `cherry` varies by province.  
+
+**Results:**
+- The interaction effect (`cherry:provinceNew York`) has the largest positive coefficient (2.655), indicating that the presence of "cherry" flavors impacts log price most strongly in New York.  
+- The effect in Oregon (`cherry:provinceOregon`) is not statistically significant, suggesting minimal impact.
+
+
+# Scenarios
+
+## On Accuracy
+
+Imagine a model to distinguish New York wines from those in California and Oregon. After a few days of work, you take some measurements and note: "I've achieved 91% accuracy on my model!" 
+
+Should you be impressed? Why or why not?
+
+```{r}
+wine %>% group_by(province) %>% summarise(count = n())
+```
+
+Achieving 91% accuracy may not be impressive due to the class imbalance. With New York wines comprising only 8.3% of the data, a naive model predicting California or Oregon could achieve high accuracy by ignoring New York altogether.
+
+
+## On Ethics
+
+Why is understanding this vignette important to use machine learning in an ethical manner?
+
+Understanding this vignette helps us realize the importance of fairness and representation in machine learning. Bias in data or features can lead to unethical outcomes, such as discrimination or bias.
+
+
+## Ignorance is no excuse
+Imagine you are working on a model to predict the likelihood that an individual loses their job as the result of the changing federal policy under new presidential administrations. You have a very large dataset with many hundreds of features, but you are worried that including indicators like age, income or gender might pose some ethical problems. When you discuss these concerns with your boss, she tells you to simply drop those features from the model. Does this solve the ethical issue? Why or why not?
+
+
+Dropping sensitive features does not resolve ethical issues. Proxy variables can indirectly reintroduce biases. Ethical machine learning requires thorough investigation of how all features influence the model and its predictions.
